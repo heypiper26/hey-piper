@@ -1,0 +1,15 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "devCommand": "vite --port $PORT",
+  "rewrites": [
+    { "source": "/((?!api/|src/|@vite/|@react-refresh|node_modules/).*)", "destination": "/index.html" }
+  ],
+  "functions": {
+    "api/transactions/**/*.js": { "maxDuration": 60 },
+    "api/patrimonio/**/*.js": { "maxDuration": 60 }
+  },
+  "crons": [
+    { "path": "/api/patrimonio/cron", "schedule": "0 9 * * *" }
+  ]
+}

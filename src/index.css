@@ -1,0 +1,225 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  html, body {
+    @apply bg-gray-950 text-gray-100 font-sans antialiased overflow-x-hidden;
+    max-width: 100vw;
+  }
+  ::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-900;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-700 rounded-full;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Minimal theme — true neutral grayscale, low-contrast, no color tint.
+   Scoped to html[data-theme="minimal"] so the default theme is untouched.
+   Overrides target the exact utility classes used across the app; class
+   selector + attribute selector beats Tailwind's single-class specificity,
+   so no !important is needed.
+--------------------------------------------------------------------- */
+html[data-theme='minimal'] {
+  background-color: rgb(13 13 13);
+  color: rgb(200 200 200);
+}
+html[data-theme='minimal'] body {
+  background-color: rgb(13 13 13);
+  color: rgb(200 200 200);
+}
+html[data-theme='minimal'] ::-webkit-scrollbar-track {
+  background-color: rgb(22 22 22);
+}
+html[data-theme='minimal'] ::-webkit-scrollbar-thumb {
+  background-color: rgb(48 48 48);
+}
+
+/* backgrounds */
+html[data-theme='minimal'] .bg-gray-950 { background-color: rgb(13 13 13); }
+html[data-theme='minimal'] .bg-gray-900 { background-color: rgb(22 22 22); }
+html[data-theme='minimal'] .bg-gray-800 { background-color: rgb(34 34 34); }
+html[data-theme='minimal'] .bg-gray-700 { background-color: rgb(48 48 48); }
+html[data-theme='minimal'] .bg-gray-600 { background-color: rgb(68 68 68); }
+html[data-theme='minimal'] .bg-gray-500 { background-color: rgb(105 105 105); }
+html[data-theme='minimal'] .bg-gray-800\/30 { background-color: rgb(34 34 34 / 0.3); }
+html[data-theme='minimal'] .bg-gray-800\/40 { background-color: rgb(34 34 34 / 0.4); }
+html[data-theme='minimal'] .bg-gray-800\/50 { background-color: rgb(34 34 34 / 0.5); }
+html[data-theme='minimal'] .bg-gray-800\/60 { background-color: rgb(34 34 34 / 0.6); }
+html[data-theme='minimal'] .bg-gray-800\/70 { background-color: rgb(34 34 34 / 0.7); }
+
+/* text */
+html[data-theme='minimal'] .text-white { color: rgb(240 240 240); }
+html[data-theme='minimal'] .text-gray-100 { color: rgb(224 224 224); }
+html[data-theme='minimal'] .text-gray-200 { color: rgb(200 200 200); }
+html[data-theme='minimal'] .text-gray-300 { color: rgb(170 170 170); }
+html[data-theme='minimal'] .text-gray-400 { color: rgb(140 140 140); }
+html[data-theme='minimal'] .text-gray-500 { color: rgb(105 105 105); }
+html[data-theme='minimal'] .text-gray-600 { color: rgb(80 80 80); }
+html[data-theme='minimal'] .text-gray-700 { color: rgb(60 60 60); }
+html[data-theme='minimal'] .placeholder-gray-500::placeholder { color: rgb(105 105 105); }
+
+/* borders */
+html[data-theme='minimal'] .border-gray-800 { border-color: rgb(34 34 34); }
+html[data-theme='minimal'] .border-gray-700 { border-color: rgb(48 48 48); }
+html[data-theme='minimal'] .border-gray-600 { border-color: rgb(68 68 68); }
+html[data-theme='minimal'] .border-gray-800\/60 { border-color: rgb(34 34 34 / 0.6); }
+html[data-theme='minimal'] .border-gray-700\/40 { border-color: rgb(48 48 48 / 0.4); }
+html[data-theme='minimal'] .divide-gray-800 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(34 34 34); }
+html[data-theme='minimal'] .divide-gray-800\/50 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(34 34 34 / 0.5); }
+html[data-theme='minimal'] .divide-gray-700\/30 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(48 48 48 / 0.3); }
+
+/* accent (replaces indigo with a clean neutral light gray, no color tint) */
+html[data-theme='minimal'] .text-indigo-300 { color: rgb(220 220 220); }
+html[data-theme='minimal'] .text-indigo-400 { color: rgb(200 200 200); }
+html[data-theme='minimal'] .bg-indigo-500 { background-color: rgb(225 225 225); }
+html[data-theme='minimal'] .bg-indigo-600 { background-color: rgb(205 205 205); }
+html[data-theme='minimal'] .hover\:bg-indigo-500:hover { background-color: rgb(225 225 225); }
+html[data-theme='minimal'] .bg-indigo-500\/5 { background-color: rgb(225 225 225 / 0.05); }
+html[data-theme='minimal'] .bg-indigo-500\/10 { background-color: rgb(225 225 225 / 0.1); }
+html[data-theme='minimal'] .bg-indigo-500\/15 { background-color: rgb(225 225 225 / 0.15); }
+html[data-theme='minimal'] .bg-indigo-500\/20 { background-color: rgb(225 225 225 / 0.2); }
+html[data-theme='minimal'] .bg-indigo-500\/50 { background-color: rgb(225 225 225 / 0.5); }
+html[data-theme='minimal'] .bg-indigo-500\/70 { background-color: rgb(225 225 225 / 0.7); }
+html[data-theme='minimal'] .bg-indigo-600\/20 { background-color: rgb(205 205 205 / 0.2); }
+html[data-theme='minimal'] .bg-indigo-600\/30 { background-color: rgb(205 205 205 / 0.3); }
+html[data-theme='minimal'] .border-indigo-500 { border-color: rgb(225 225 225); }
+html[data-theme='minimal'] .border-indigo-500\/20 { border-color: rgb(225 225 225 / 0.2); }
+html[data-theme='minimal'] .border-indigo-600 { border-color: rgb(205 205 205); }
+html[data-theme='minimal'] .border-indigo-600\/40 { border-color: rgb(205 205 205 / 0.4); }
+html[data-theme='minimal'] .ring-indigo-500,
+html[data-theme='minimal'] .focus\:ring-indigo-500:focus { --tw-ring-color: rgb(225 225 225 / var(--tw-ring-opacity, 1)); }
+html[data-theme='minimal'] .ring-indigo-600,
+html[data-theme='minimal'] .focus\:ring-indigo-600:focus { --tw-ring-color: rgb(205 205 205 / var(--tw-ring-opacity, 1)); }
+
+@layer components {
+  .card {
+    @apply bg-gray-900 rounded-2xl border border-gray-800 p-5;
+  }
+  .btn-primary {
+    @apply bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-xl transition-colors;
+  }
+  .btn-ghost {
+    @apply text-gray-400 hover:text-gray-100 hover:bg-gray-800 px-3 py-2 rounded-xl transition-colors;
+  }
+  .input {
+    @apply bg-gray-800 border border-gray-700 rounded-xl px-3 py-2 text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent w-full;
+  }
+  .badge-income {
+    @apply text-xs font-medium bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full;
+  }
+  .badge-expense {
+    @apply text-xs font-medium bg-red-500/10 text-red-400 px-2 py-0.5 rounded-full;
+  }
+}
+
+html[data-theme='minimal'] .card {
+  background-color: rgb(22 22 22);
+  border-color: rgb(34 34 34);
+}
+html[data-theme='minimal'] .btn-primary {
+  background-color: rgb(205 205 205);
+  color: rgb(15 15 15);
+}
+html[data-theme='minimal'] .btn-primary:hover {
+  background-color: rgb(225 225 225);
+}
+html[data-theme='minimal'] .btn-ghost {
+  color: rgb(140 140 140);
+}
+html[data-theme='minimal'] .btn-ghost:hover {
+  color: rgb(224 224 224);
+  background-color: rgb(34 34 34);
+}
+html[data-theme='minimal'] .input {
+  background-color: rgb(34 34 34);
+  border-color: rgb(48 48 48);
+  color: rgb(224 224 224);
+}
+html[data-theme='minimal'] .input::placeholder {
+  color: rgb(105 105 105);
+}
+html[data-theme='minimal'] .input:focus {
+  --tw-ring-color: rgb(225 225 225 / var(--tw-ring-opacity, 1));
+}
+
+/* ---------------------------------------------------------------------
+   Light theme — inverts the default dark palette. Same attribute-selector
+   mechanism as the minimal theme above.
+--------------------------------------------------------------------- */
+html[data-theme='light'] {
+  background-color: rgb(255 255 255);
+  color: rgb(17 24 39);
+}
+html[data-theme='light'] body {
+  background-color: rgb(255 255 255);
+  color: rgb(17 24 39);
+}
+html[data-theme='light'] ::-webkit-scrollbar-track {
+  background-color: rgb(243 244 246);
+}
+html[data-theme='light'] ::-webkit-scrollbar-thumb {
+  background-color: rgb(209 213 219);
+}
+
+/* backgrounds */
+html[data-theme='light'] .bg-gray-950 { background-color: rgb(255 255 255); }
+html[data-theme='light'] .bg-gray-900 { background-color: rgb(249 250 251); }
+html[data-theme='light'] .bg-gray-800 { background-color: rgb(243 244 246); }
+html[data-theme='light'] .bg-gray-700 { background-color: rgb(229 231 235); }
+html[data-theme='light'] .bg-gray-600 { background-color: rgb(209 213 219); }
+html[data-theme='light'] .bg-gray-500 { background-color: rgb(156 163 175); }
+html[data-theme='light'] .bg-gray-800\/30 { background-color: rgb(243 244 246 / 0.3); }
+html[data-theme='light'] .bg-gray-800\/40 { background-color: rgb(243 244 246 / 0.4); }
+html[data-theme='light'] .bg-gray-800\/50 { background-color: rgb(243 244 246 / 0.5); }
+html[data-theme='light'] .bg-gray-800\/60 { background-color: rgb(243 244 246 / 0.6); }
+html[data-theme='light'] .bg-gray-800\/70 { background-color: rgb(243 244 246 / 0.7); }
+
+/* text */
+html[data-theme='light'] .text-white { color: rgb(17 24 39); }
+html[data-theme='light'] .text-gray-100 { color: rgb(17 24 39); }
+html[data-theme='light'] .text-gray-200 { color: rgb(31 41 55); }
+html[data-theme='light'] .text-gray-300 { color: rgb(55 65 81); }
+html[data-theme='light'] .text-gray-400 { color: rgb(107 114 128); }
+html[data-theme='light'] .text-gray-500 { color: rgb(107 114 128); }
+html[data-theme='light'] .text-gray-600 { color: rgb(156 163 175); }
+html[data-theme='light'] .text-gray-700 { color: rgb(209 213 219); }
+html[data-theme='light'] .placeholder-gray-500::placeholder { color: rgb(156 163 175); }
+
+/* borders */
+html[data-theme='light'] .border-gray-800 { border-color: rgb(229 231 235); }
+html[data-theme='light'] .border-gray-700 { border-color: rgb(209 213 219); }
+html[data-theme='light'] .border-gray-600 { border-color: rgb(156 163 175); }
+html[data-theme='light'] .border-gray-800\/60 { border-color: rgb(229 231 235 / 0.6); }
+html[data-theme='light'] .border-gray-700\/40 { border-color: rgb(209 213 219 / 0.4); }
+html[data-theme='light'] .divide-gray-800 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(229 231 235); }
+html[data-theme='light'] .divide-gray-800\/50 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(229 231 235 / 0.5); }
+html[data-theme='light'] .divide-gray-700\/30 > :not([hidden]) ~ :not([hidden]) { border-color: rgb(209 213 219 / 0.3); }
+
+html[data-theme='light'] .card {
+  background-color: rgb(249 250 251);
+  border-color: rgb(229 231 235);
+}
+html[data-theme='light'] .btn-ghost {
+  color: rgb(107 114 128);
+}
+html[data-theme='light'] .btn-ghost:hover {
+  color: rgb(17 24 39);
+  background-color: rgb(243 244 246);
+}
+html[data-theme='light'] .input {
+  background-color: rgb(243 244 246);
+  border-color: rgb(209 213 219);
+  color: rgb(17 24 39);
+}
+html[data-theme='light'] .input::placeholder {
+  color: rgb(156 163 175);
+}
