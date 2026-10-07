@@ -107,7 +107,7 @@ Tempo estimado: 30–45 minutos. Você vai juntar estes valores ao longo dos pas
 2. Em **Billing**, adicione créditos. O uso do app é baixo: cada importação ou relatório custa poucos centavos de dólar.
 3. Em **API Keys** → **Create Key**, dê um nome (ex.: `hey-piper`) e copie a chave (`sk-ant-...`). Ela aparece **uma única vez**. Esse é o seu **`ANTHROPIC_API_KEY`**.
 
-**Modelos (opcional).** Por padrão, os dois recursos de IA usam `claude-sonnet-4-6`. Para trocar, defina:
+**Modelos (opcional).** Por padrão, os dois recursos de IA usam `claude-sonnet-5-5`. Para trocar, defina:
 
 - `MODEL_SMART_IMPORT`: modelo da categorização no File Import
 - `MODEL_MONTHLY_REPORT`: modelo do Relatório do Mês
