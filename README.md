@@ -39,7 +39,22 @@ Cada pessoa roda **a sua própria instância**, com o seu próprio banco de dado
 
 ## Instalação passo a passo
 
-Tempo estimado: 30–45 minutos. Você vai juntar estes valores ao longo dos passos. Anote-os num lugar seguro (um gerenciador de senhas, por exemplo):
+Tempo estimado: 30–45 minutos.
+
+### Onde ficam as chaves e senhas
+
+Nos passos 2 a 5 você vai juntar chaves e senhas (URL do banco, chave da IA, etc.). **Nenhuma delas é escrita no código.** O caminho é este:
+
+1. **Antes de começar**, faça uma cópia do arquivo [`.env.example`](.env.example) com o nome `.env` (na pasta do projeto, se você clonou, ou num editor de texto qualquer). Ele já tem todas as variáveis listadas, vazias, com um comentário explicando cada uma.
+2. **A cada passo**, cole o valor obtido depois do `=` da variável correspondente. Exemplo:
+   ```
+   ANTHROPIC_API_KEY=sk-ant-api03-abc123...
+   ```
+3. **No passo 6**, você cola o conteúdo inteiro desse arquivo na tela **Environment Variables** da Vercel. É de lá que o app publicado lê os valores.
+
+O `.env` também é o arquivo usado para rodar o app no seu computador (veja [Rodando localmente](#rodando-localmente-desenvolvimento)). Ele está no `.gitignore` e **nunca deve ir para o GitHub**. Guarde uma cópia num lugar seguro, como um gerenciador de senhas.
+
+Resumo das variáveis:
 
 | Variável | Obrigatória? | Vem do passo |
 |---|---|---|
@@ -194,7 +209,8 @@ Depois de autorizada, a conexão é atualizada pela Pluggy uma vez por dia.
 2. Clique em **Add New… → Project** e importe o seu repositório `hey-piper`. Se ele não aparecer, clique em **Adjust GitHub App Permissions** e libere o acesso.
 3. Na tela de configuração:
    - **Framework Preset**: `Vite` (normalmente detectado sozinho). Os comandos de build já estão no `vercel.json`, então não mude nada.
-   - Abra **Environment Variables** e adicione **uma a uma** as variáveis da tabela do início, com os valores que você anotou. As que não for usar podem ficar de fora.
+   - Abra **Environment Variables**. Copie **todo** o conteúdo do seu `.env` e cole no primeiro campo (**Key**): a Vercel reconhece o formato e cria todas as variáveis de uma vez. Confira se os valores entraram e apague as linhas vazias (variáveis que você não vai usar).
+   - Se preferir, adicione uma a uma: o nome em **Key** (ex.: `DATABASE_URL`) e o valor em **Value**.
 4. Clique em **Deploy** e aguarde 1–2 minutos.
 5. Abra a URL gerada (ex.: `https://hey-piper-xxxx.vercel.app`) e faça login com o `APP_PASSWORD`.
 
@@ -231,7 +247,7 @@ vercel --prod
 
 ```bash
 npm install
-cp .env.example .env     # preencha com os seus valores
+cp .env.example .env     # se ainda não criou; preencha com os seus valores
 npm i -g vercel
 vercel login
 vercel link              # uma vez, associa ao projeto da Vercel
