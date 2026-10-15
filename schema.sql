@@ -32,12 +32,16 @@ CREATE TABLE IF NOT EXISTS transactions (
   offsets_category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
   import_key TEXT DEFAULT NULL,
   pluggy_transaction_id TEXT DEFAULT NULL,
+  -- Só cartão: mês (YYYY-MM) de vencimento da fatura em que o lançamento é cobrado. É o lado
+  -- caixa da compra; `date` continua sendo a competência (parcelas recalculadas pela compra).
+  invoice_month TEXT DEFAULT NULL,
   created_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS')
 );
 
 CREATE INDEX IF NOT EXISTS idx_transactions_import_key ON transactions(import_key);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_transactions_pluggy_id ON transactions(pluggy_transaction_id) WHERE pluggy_transaction_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
+CREATE INDEX IF NOT EXISTS idx_transactions_invoice_month ON transactions(invoice_month) WHERE invoice_month IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_transactions_category_id ON transactions(category_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_offsets ON transactions(offsets_category_id) WHERE offsets_category_id IS NOT NULL;
 
@@ -45,6 +49,21 @@ CREATE INDEX IF NOT EXISTS idx_transactions_offsets ON transactions(offsets_cate
 -- (/transactions/similar e /transactions/category-suggestions usam LIKE '%...%')
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE INDEX IF NOT EXISTS idx_transactions_desc_trgm ON transactions USING gin (LOWER(description) gin_trgm_ops);
+
+-- Faturas fechadas do cartão, espelhadas da Pluggy a cada sincronização (lib/cardBills.js).
+-- O pagamento da fatura não vira transação (as compras já estão lançadas uma a uma); fica
+-- registrado aqui para a visão de caixa.
+CREATE TABLE IF NOT EXISTS card_bills (
+  account_id TEXT NOT NULL,     -- conta de cartão na Pluggy (uma linha por cartão e vencimento)
+  due_month TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  closing_date TEXT,
+  total_amount NUMERIC(12,2) NOT NULL,
+  paid_amount NUMERIC(12,2),
+  paid_date TEXT,
+  updated_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS'),
+  PRIMARY KEY (account_id, due_month)
+);
 
 CREATE TABLE IF NOT EXISTS savings_goals (
   id SERIAL PRIMARY KEY,

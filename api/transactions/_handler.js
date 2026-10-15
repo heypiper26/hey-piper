@@ -19,6 +19,16 @@ function monthRange(year, month) {
   };
 }
 
+function addMonthsISO(dateStr, months) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d.toISOString().slice(0, 10);
+}
+
+function daysBetween(from, to) {
+  return Math.round((new Date(`${to}T00:00:00Z`) - new Date(`${from}T00:00:00Z`)) / 86400000);
+}
+
 function yearRange(year) {
   const y = Number(year);
   return { start: `${y}-01-01`, end: `${y + 1}-01-01` };
@@ -47,7 +57,7 @@ function parseInstallment(description) {
 
 async function handleRoot(req, res) {
   if (req.method === 'GET') {
-    const { year, month, category_id, type, limit = 200, offset = 0, include_ignored } = req.query;
+    const { year, month, category_id, type, limit = 200, offset = 0, include_ignored, invoice_month } = req.query;
 
     const conditions = [];
     if (!include_ignored) conditions.push(sql`(t.ignored IS NULL OR t.ignored = 0)`);
@@ -59,6 +69,8 @@ async function handleRoot(req, res) {
       conditions.push(sql`t.date >= ${start} AND t.date < ${end}`);
     }
     if (category_id) conditions.push(sql`t.category_id=${Number(category_id)}`);
+    // Card purchases by the fatura they are billed on (cash side) instead of by purchase date.
+    if (invoice_month) conditions.push(sql`t.invoice_month=${String(invoice_month)}`);
     if (type) conditions.push(sql`t.type=${type}`);
 
     const where = conditions.length ? sql`WHERE ${conditions.reduce((a, b) => sql`${a} AND ${b}`)}` : sql``;
@@ -167,6 +179,7 @@ async function handleBulk(req, res) {
     source: t.source || null,
     import_key: t.import_key || null,
     pluggy_transaction_id: t.pluggy_transaction_id || null,
+    invoice_month: t.invoice_month || null,
     is_transfer: !!t.is_transfer,
     is_extraordinary: !!t.is_extraordinary,
     offsets_category_id: t.offsets_category_id || null,
@@ -589,6 +602,171 @@ async function handleForecast(req, res) {
   return res.json(rows);
 }
 
+// Faturas by due month with every card that falls due in it added up. A month counts as paid
+// only once all of its cards are.
+function billsByMonth(where) {
+  return sql`
+    SELECT due_month, MAX(due_date) as due_date, MAX(closing_date) as closing_date,
+           SUM(total_amount) as total_amount,
+           CASE WHEN COUNT(paid_date) = COUNT(*) THEN SUM(COALESCE(paid_amount, total_amount)) END as paid_amount,
+           CASE WHEN COUNT(paid_date) = COUNT(*) THEN MAX(paid_date) END as paid_date
+    FROM card_bills WHERE ${where} GROUP BY due_month`;
+}
+
+// Cash view of a month, next to the competência numbers everything else here produces.
+// Competência books a card purchase on the day it was made; cash only moves when the fatura
+// is debited. So cash = what went through the checking account + the fatura paid in the
+// month, and never the individual card purchases.
+//
+// For the current month it also projects forward from the real account balance (the latest
+// patrimônio snapshot): what is still expected in and out of the account by month end, and
+// the next fatura. Future investment redemptions are deliberately left out of the
+// projection — a negative projected balance is exactly what tells how much to redeem.
+async function handleCash(req, res) {
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+  const { year, month } = req.query;
+  if (!year || !month) return res.status(400).json({ error: 'year e month obrigatórios' });
+
+  const { start, end } = monthRange(year, month);
+  const ym = start.slice(0, 7);
+  const nextYm = end.slice(0, 7);
+  const today = String(req.query.today || new Date().toISOString().slice(0, 10));
+  const isCurrent = today >= start && today < end;
+
+  const notCard = sql`(t.source IS NULL OR (t.source <> 'credit_card' AND t.source NOT ILIKE '%cart%' AND t.source NOT ILIKE '%credit%'))`;
+  const active = sql`(t.ignored IS NULL OR t.ignored = 0)`;
+
+  // One round trip for everything: the connection sends a single query at a time (see
+  // lib/db.js) and a Dashboard load already queues a dozen, so each extra query here would
+  // wait its turn behind the other cards'. The projection parts are only computed for the
+  // current month.
+  const shareFrom = addMonthsISO(start, -3);
+  const lastClosedQ = sql`
+    SELECT closing_date FROM card_bills
+    WHERE closing_date IS NOT NULL AND due_month <= ${nextYm} ORDER BY due_month DESC LIMIT 1`;
+  const projectionCols = isCurrent
+    ? sql`
+      (SELECT COALESCE(json_agg(x), '[]') FROM (
+         SELECT c.id, c.name, c.type, COALESCE(mb.limit_amount, c.budget_limit) as budget,
+                COALESCE((SELECT SUM(t.amount) FROM transactions t
+                          WHERE t.category_id = c.id AND ${active} AND NOT COALESCE(t.is_transfer, false)
+                            AND t.date >= ${start} AND t.date < ${end}), 0) as actual
+         FROM categories c
+         LEFT JOIN monthly_budgets mb ON mb.category_id = c.id AND mb.year = ${Number(year)} AND mb.month = ${Number(month)}
+         WHERE c.is_recurring AND COALESCE(mb.limit_amount, c.budget_limit) IS NOT NULL) x) as cats,
+      -- Last three full months: how much of each category goes through the account rather
+      -- than the card. A budgeted category paid by card only hits cash on the fatura.
+      (SELECT COALESCE(json_agg(x), '[]') FROM (
+         SELECT t.category_id, SUM(t.amount) FILTER (WHERE ${notCard}) as bank, SUM(t.amount) as total
+         FROM transactions t
+         WHERE ${active} AND t.type = 'expense' AND t.date >= ${shareFrom} AND t.date < ${start}
+         GROUP BY 1) x) as shares,
+      -- Day-to-day card spend on the still-open fatura: installments are already booked in
+      -- full and one-off extraordinary purchases say nothing about the days ahead.
+      (SELECT row_to_json(x) FROM (
+         SELECT COALESCE(SUM(t.amount), 0) as total, MAX(t.date) as last_date FROM transactions t
+         WHERE ${active} AND t.type = 'expense' AND t.invoice_month = ${nextYm}
+           AND NOT COALESCE(t.is_extraordinary, false)
+           AND t.date >= (${lastClosedQ}) AND t.date <= ${today}
+           AND LOWER(t.description) !~ ${INSTALLMENT_SQL_PATTERN}) x) as pace`
+    : sql`NULL::json as cats, NULL::json as shares, NULL::json as pace`;
+
+  const [row] = await sql`
+    SELECT
+      (SELECT COALESCE(json_agg(x), '[]') FROM (
+         SELECT t.type, (COALESCE(t.is_transfer, false) OR COALESCE(c.name, '') ~* 'invest') as invest, SUM(t.amount) as total
+         FROM transactions t LEFT JOIN categories c ON c.id = t.category_id
+         WHERE ${active} AND ${notCard} AND t.date >= ${start} AND t.date < ${end}
+         GROUP BY 1, 2) x) as flows,
+      (SELECT COALESCE(json_agg(b), '[]') FROM (${billsByMonth(sql`due_month IN (${ym}, ${nextYm})`)}) b) as bills,
+      (SELECT due_date FROM card_bills WHERE due_month <= ${nextYm} ORDER BY due_month DESC LIMIT 1) as last_due,
+      (SELECT COALESCE(json_agg(x), '[]') FROM (
+         SELECT t.invoice_month, SUM(CASE WHEN t.type='expense' THEN t.amount ELSE -t.amount END) as total
+         FROM transactions t WHERE ${active} AND t.invoice_month IN (${ym}, ${nextYm}) GROUP BY 1) x) as invoice_sums,
+      (${lastClosedQ}) as last_closing,
+      (SELECT row_to_json(x) FROM (
+         SELECT date, contas FROM patrimonio_snapshots WHERE date <= ${today} ORDER BY date DESC LIMIT 1) x) as balance,
+      ${projectionCols}
+  `;
+  const { flows, bills, invoice_sums: invoiceSums, last_closing: lastClosing, last_due: lastDue, balance: balanceRow } = row;
+
+  const flow = (type, invest) => Number(flows.find((r) => r.type === type && r.invest === invest)?.total || 0);
+  const invoiceSum = (m) => Number(invoiceSums.find((r) => r.invoice_month === m)?.total || 0);
+
+  // A fatura is debited automatically on its due date. card_bills is only refreshed on a
+  // Pluggy sync, so "no payment recorded" past the due date means stale data, not an unpaid
+  // bill — treat it as paid rather than subtracting it from the balance a second time.
+  // A fatura not closed yet has no due date of its own: assume the card keeps the due day of
+  // its last known one (clamped to the month's length).
+  const expectedDueDate = (m) => {
+    const [y, mo] = m.split('-').map(Number);
+    const day = Math.min(Number(lastDue?.slice(8, 10)) || 10, new Date(Date.UTC(y, mo, 0)).getUTCDate());
+    return `${m}-${String(day).padStart(2, '0')}`;
+  };
+  const describeBill = (m) => {
+    const row = bills.find((b) => b.due_month === m);
+    const dueDate = row?.due_date || expectedDueDate(m);
+    const amount = Number(row?.paid_amount ?? row?.total_amount ?? invoiceSum(m));
+    const paid = row?.paid_date != null || today > dueDate;
+    return { due_month: m, due_date: dueDate, closed: !!row, amount, paid };
+  };
+  const bill = describeBill(ym);
+
+  const income = flow('income', false);
+  const expense = flow('expense', false);
+  const investments = flow('income', true) - flow('expense', true);
+  const billPaid = bill.paid ? bill.amount : 0;
+
+  const out = {
+    income, expense, investments, bill,
+    net: income - expense + investments - billPaid,
+    balance: balanceRow ? { date: balanceRow.date, amount: Number(balanceRow.contas) } : null,
+    projection: null,
+  };
+
+  if (!isCurrent || !out.balance) return res.json(out);
+
+  const { cats, shares, pace } = row;
+
+  const bankShare = (id) => {
+    const r = shares.find((x) => x.category_id === id);
+    return r && Number(r.total) > 0 ? Number(r.bank || 0) / Number(r.total) : 1;
+  };
+
+  let incomeAhead = 0, expenseAhead = 0;
+  cats.forEach((c) => {
+    const remaining = Math.max(0, Number(c.budget) - Number(c.actual));
+    if (c.type === 'income') {
+      if (!/invest/i.test(c.name)) incomeAhead += remaining;
+    } else {
+      expenseAhead += remaining * bankShare(c.id);
+    }
+  });
+
+  const billAhead = bill.paid ? 0 : bill.amount;
+  const endOfMonth = out.balance.amount + incomeAhead - expenseAhead - billAhead;
+
+  const nextBill = describeBill(nextYm);
+  let nextBillProjected = nextBill.amount;
+  if (!nextBill.closed && lastClosing && pace) {
+    // The rate is measured up to the last imported purchase, not today — otherwise the days
+    // since the last sync count as days with no spending and drag the projection down.
+    const cycleStart = lastClosing;
+    const cycleEnd = addMonthsISO(cycleStart, 1);
+    const measuredUntil = pace.last_date || today;
+    const elapsed = Math.max(1, daysBetween(cycleStart, measuredUntil) + 1);
+    const left = Math.max(0, daysBetween(measuredUntil, cycleEnd) - 1);
+    nextBillProjected += (Number(pace.total) / elapsed) * left;
+  }
+
+  out.projection = {
+    incomeAhead, expenseAhead, billAhead, endOfMonth,
+    nextBill: { ...nextBill, projected: nextBillProjected },
+    afterNextBill: endOfMonth - nextBillProjected,
+  };
+  return res.json(out);
+}
+
 // Active installment plans, derived from the `NN/NN` suffix Pluggy leaves in card
 // descriptions (e.g. "LOJA EXEMPLO  07/10"). No dedicated table: future
 // installments are already booked as future-dated transactions on the fatura; this
@@ -823,6 +1001,7 @@ const NAMED_ROUTES = {
   'category-suggestions': handleCategorySuggestions,
   'categorize-ai': handleCategorizeAI,
   forecast: handleForecast,
+  cash: handleCash,
   installments: handleInstallments,
   'monthly-report': handleMonthlyReport,
   search: handleSearch,

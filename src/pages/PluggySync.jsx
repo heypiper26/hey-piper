@@ -15,8 +15,9 @@ export default function PluggySync() {
     reset();
     try {
       log('🔄', 'Buscando transações novas via Pluggy...');
-      const { candidates, skipped } = await api.getPluggyCandidates();
+      const { candidates, skipped, billPayments } = await api.getPluggyCandidates();
       log('📊', `${candidates.length} transação(ões) nova(s), ${skipped} já existente(s), ignoradas`, skipped > 0 ? '#a5b4fc' : '#6b7280');
+      if (billPayments > 0) log('💳', `${billPayments} pagamento(s) de fatura deixado(s) de fora — as compras já estão lançadas uma a uma`, '#6b7280');
 
       const categorized = await categorizeTransactions(candidates.map((c) => ({ ...c, notes: '' })), log);
 

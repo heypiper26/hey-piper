@@ -10,6 +10,7 @@ import { fmt } from '../utils/format.js';
 import { usePeriod } from '../hooks/usePeriod.js';
 import EditTransactionModal from '../components/EditTransactionModal.jsx';
 import InstallmentsCard from '../components/InstallmentsCard.jsx';
+import CashCard from '../components/CashCard.jsx';
 import { useHideValues, mask } from '../hooks/useHideValues.js';
 
 const TooltipBR = ({ active, payload, label, hidden }) => {
@@ -123,6 +124,7 @@ export default function Dashboard() {
     }),
     [year, month, isCurrentMonth]
   );
+  const { data: cash } = useApi(() => api.getCash(year, month, todayStr), [year, month]);
   const { data: budgets } = useApi(() => api.getBudgets(year, month), [year, month]);
   const { data: categories } = useApi(() => api.getCategories(), []);
   const { data: trend } = useApi(() => api.getMonthlyTrend(6), []);
@@ -361,6 +363,8 @@ export default function Dashboard() {
           bg="bg-indigo-500/10"
         />
       </div>
+
+      <CashCard data={cash} hidden={hidden} />
 
       {/* Spending pace — current month only */}
       {isCurrentMonth && totalBudget > 0 && realizedNet !== null && (

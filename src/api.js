@@ -77,6 +77,7 @@ export const api = {
   // generation + DB writes); the serverless function itself is given a matching
   // maxDuration in vercel.json so the backend doesn't get cut off first.
   generateMonthlyReport: (year, month) => req('/transactions/monthly-report', { method: 'POST', body: { year, month }, timeoutMs: 55000 }),
+  getCash: (year, month, today) => req(`/transactions/cash?year=${year}&month=${month}&today=${today}`),
   getForecast: (year, month, months = 12) => req(`/transactions/forecast?year=${year}&month=${month}&months=${months}`),
   getActiveMonths: () => req('/transactions/active-months'),
   getCategoryMonthly: (category_id, months = 6) => req(`/transactions/category-monthly?category_id=${category_id}&months=${months}`),
@@ -107,6 +108,7 @@ export const api = {
 
   // Pluggy
   getPluggyCandidates: (since) => req(`/pluggy/candidates${since ? '?since=' + since : ''}`),
+  getCardBills: () => req('/pluggy/bills'),
 
   // Patrimônio
   getPatrimonio: () => req('/patrimonio/data'),

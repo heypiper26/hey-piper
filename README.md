@@ -6,10 +6,10 @@ Cada pessoa roda **a sua própria instância**, com o seu próprio banco de dado
 
 ## Funcionalidades
 
-- **Dashboard**: receitas, despesas, saldo, ritmo de gastos do mês, projeção de fechamento e comprometimento da renda
+- **Dashboard**: receitas, despesas, saldo, ritmo de gastos do mês, projeção de fechamento e comprometimento da renda, mais o **Caixa**: o que de fato passou pela conta no mês e o saldo projetado da conta até o fim do mês e depois da próxima fatura
 - **Orçamento**: limite mensal por categoria, com cópia entre meses
 - **Transações**: busca, filtros, edição em massa, reembolsos e transferências
-- **Cartão de Crédito**: fatura e parcelamentos ativos
+- **Cartão de Crédito**: gastos por competência (data da compra) ou por fatura (o que é cobrado em cada vencimento, conferido com o total do banco), e parcelamentos ativos
 - **Análise**: tendência mensal e comparação entre categorias, mais o **Relatório do Mês** gerado por IA
 - **Patrimônio**: saldo das contas, investimentos e dívidas via Open Finance (Pluggy), com foto diária automática, além de bens manuais (imóvel, veículo, conta no exterior…)
 - **File Import**: importa extratos e faturas (CSV, XLS, XLSX) e categoriza com regras, histórico e IA
@@ -243,6 +243,29 @@ vercel --prod
 
 ---
 
+## Atualizando uma instalação existente
+
+O `schema.sql` só é executado na instalação. Se a sua instância foi criada antes da visão de fatura do cartão e do card de Caixa, rode isto uma vez no **SQL Editor** do Supabase:
+
+```sql
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS invoice_month TEXT DEFAULT NULL;
+CREATE INDEX IF NOT EXISTS idx_transactions_invoice_month ON transactions(invoice_month) WHERE invoice_month IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS card_bills (
+  account_id TEXT NOT NULL,
+  due_month TEXT NOT NULL,
+  due_date TEXT NOT NULL,
+  closing_date TEXT,
+  total_amount NUMERIC(12,2) NOT NULL,
+  paid_amount NUMERIC(12,2),
+  paid_date TEXT,
+  updated_at TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS'),
+  PRIMARY KEY (account_id, due_month)
+);
+```
+
+Depois, rode o **Smart Import (API)** uma vez para preencher as faturas. A fatura de cada compra é preenchida nas importações novas e nas compras dos últimos 30 dias que a sincronização encontra; lançamentos mais antigos ficam sem fatura e não aparecem na visão por fatura.
+
 ## Rodando localmente (desenvolvimento)
 
 ```bash
@@ -273,6 +296,8 @@ lib/
   auth.js            # sessão, hash de senha, rate limit de login
   ai.js              # Anthropic / OpenAI conforme o nome do modelo
   pluggy.js  patrimonio.js
+  pluggyMap.js       # converte transações da Pluggy (data de competência e fatura de cada compra)
+  cardBills.js       # espelha as faturas fechadas do cartão na tabela card_bills
 src/                 # Frontend React
 schema.sql           # Tabelas + categorias padrão
 vercel.json          # build, rotas, timeout das funções e cron
@@ -286,6 +311,9 @@ Detalhes do modelo de dados:
 - **Reembolso**: uma receita pode "descontar" uma categoria de despesa (ex.: reembolso do plano de saúde abate Saúde).
 - **Transferência** (`is_transfer`): dinheiro que muda de lugar sem ser consumido (ex.: aporte em investimento). Sai do saldo, mas não conta como gasto.
 - **Extraordinária** (`is_extraordinary`): despesa pontual, excluída do ritmo e da projeção do mês.
+- **Competência × caixa no cartão**: `date` é a competência (a data da compra; cada parcela cai um mês depois da anterior, a partir da compra). `invoice_month` é o mês de vencimento da fatura em que o lançamento é cobrado, vindo da Pluggy. Todo o app usa a competência; a visão por fatura e o Caixa usam `invoice_month`.
+- **Pagamento da fatura** não vira transação: as compras já estão lançadas uma a uma, e lançar o pagamento contaria tudo duas vezes. A sincronização com a Pluggy descarta as duas pontas do pagamento (no cartão e na conta) e guarda as faturas fechadas em `card_bills`.
+- **Caixa**: entradas e saídas da conta no mês, mais a fatura no dia em que é paga. A projeção (só no mês corrente) parte do saldo real da conta, tirado da foto diária do Patrimônio, e soma o que falta do orçado nas categorias fixas pagas pela conta. Resgates futuros não entram: um saldo projetado negativo mostra quanto falta cobrir. Sem a Pluggy, o card mostra só o realizado.
 
 ## Solução de problemas
 
@@ -295,6 +323,7 @@ Detalhes do modelo de dados:
 | Erro 500 em tudo / "SESSION_SECRET não configurada" nos logs | falta `SESSION_SECRET` na Vercel |
 | Timeout ou erro de conexão com o banco | `DATABASE_URL` com a porta 5432 (use o pooler **6543**), senha errada ou projeto Supabase **pausado** (reative no painel) |
 | `relation "categories" does not exist` | o `schema.sql` não foi executado no Supabase |
+| `relation "card_bills" does not exist` ou `column "invoice_month" does not exist` | instância criada antes dessas tabelas: rode o SQL de [Atualizando uma instalação existente](#atualizando-uma-instalação-existente) |
 | File Import não categoriza / relatório falha | `ANTHROPIC_API_KEY` ausente ou sem créditos |
 | Smart Import (API) / Patrimônio com erro | variáveis `PLUGGY_*` ausentes, ou consentimento do item expirado |
 | Cron retorna 401 | `CRON_SECRET` ausente ou alterado sem redeploy |

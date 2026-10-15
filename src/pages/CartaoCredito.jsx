@@ -28,8 +28,24 @@ export default function CartaoCredito() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [editTx, setEditTx] = useState(null);
 
+  // 'competencia' = compras feitas no mês selecionado; 'fatura' = o que é cobrado na fatura
+  // que fecha nesse mês (vence no mês seguinte) — o número que bate com o banco.
+  const [view, setView] = useState('competencia');
+  const byInvoice = view === 'fatura';
+  const invoiceMonth = month === 12
+    ? `${year + 1}-01`
+    : `${year}-${String(month + 1).padStart(2, '0')}`;
+
   const { data: transactions, loading, reload } = useApi(
-    () => api.getTransactions({ year, month, include_ignored: 1, limit: 2000 }), [year, month]
+    () => api.getTransactions(byInvoice
+      ? { invoice_month: invoiceMonth, include_ignored: 1, limit: 2000 }
+      : { year, month, include_ignored: 1, limit: 2000 }),
+    [year, month, view]
+  );
+  const { data: bills } = useApi(() => api.getCardBills(), []);
+  const bill = useMemo(
+    () => (bills || []).find((b) => b.due_month === invoiceMonth) || null,
+    [bills, invoiceMonth]
   );
   const { data: categories } = useApi(() => api.getCategories(), []);
 
@@ -48,10 +64,18 @@ export default function CartaoCredito() {
     [cardTxns]
   );
 
-  const totalFatura = useMemo(
-    () => cardExpenses.reduce((s, t) => s + Number(t.amount), 0),
-    [cardExpenses]
-  );
+  // Estornos e ajustes entram como receita no cartão e abatem a fatura; na competência o
+  // total continua sendo só o gasto, como no resto do app.
+  const totalFatura = useMemo(() => {
+    const spent = cardExpenses.reduce((s, t) => s + Number(t.amount), 0);
+    if (!byInvoice) return spent;
+    const credits = cardTxns
+      .filter((t) => t.type === 'income' && !t.ignored)
+      .reduce((s, t) => s + Number(t.amount), 0);
+    return spent - credits;
+  }, [cardExpenses, cardTxns, byInvoice]);
+
+  const billDiff = bill ? totalFatura - Number(bill.total_amount) : 0;
 
   const pieData = useMemo(() => {
     const byCategory = new Map();
@@ -105,15 +129,38 @@ export default function CartaoCredito() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-white tracking-tight">Cartão de Crédito</h1>
-          <p className="text-sm text-gray-500 capitalize">{fmt.monthYear(year, month)}</p>
+          <p className="text-sm text-gray-500">
+            {byInvoice
+              ? (bill
+                ? `Fatura com vencimento em ${fmt.date(bill.due_date)}${bill.closing_date ? ` · fechou em ${fmt.date(bill.closing_date)}` : ''}`
+                : `Fatura com vencimento em ${fmt.monthYear(...invoiceMonth.split('-').map(Number))} · ainda aberta`)
+              : `${fmt.monthYear(year, month)} · compras feitas no mês`}
+          </p>
+        </div>
+        <div className="flex rounded-lg border border-gray-800 p-0.5 text-xs">
+          {[['competencia', 'Competência'], ['fatura', 'Fatura']].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setView(key)}
+              className={`px-3 py-1.5 rounded-md transition-colors ${view === key ? 'bg-gray-800 text-white' : 'text-gray-500 hover:text-gray-300'}`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Summary */}
       <div className="grid grid-cols-2 gap-3">
         <div className="card px-5 py-3">
-          <p className="text-xs text-gray-500 mb-0.5">Total da Fatura</p>
+          <p className="text-xs text-gray-500 mb-0.5">{byInvoice ? 'Total da Fatura' : 'Compras do Mês'}</p>
           <p className="text-red-400 font-semibold text-lg tabular-nums">{mask(fmt.currency(totalFatura), hidden)}</p>
+          {byInvoice && bill && !loading && (
+            <p className={`text-xs mt-0.5 tabular-nums ${Math.abs(billDiff) < 1 ? 'text-gray-500' : 'text-amber-400'}`}>
+              Banco: {mask(fmt.currency(Number(bill.total_amount)), hidden)}
+              {Math.abs(billDiff) < 1 ? ' · confere' : ` · diferença de ${mask(fmt.currency(billDiff), hidden)}`}
+            </p>
+          )}
         </div>
         <div className="card px-5 py-3">
           <p className="text-xs text-gray-500 mb-0.5">Transações no cartão</p>
@@ -126,7 +173,7 @@ export default function CartaoCredito() {
         <h3 className="text-sm font-medium text-gray-300 mb-3">Despesas por Categoria</h3>
         {pieData.length === 0 ? (
           <div className="h-60 flex items-center justify-center text-gray-600 text-sm">
-            Sem despesas no cartão este mês
+            {byInvoice ? 'Sem lançamentos nesta fatura' : 'Sem despesas no cartão este mês'}
           </div>
         ) : (
           <>

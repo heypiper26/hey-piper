@@ -1526,6 +1526,7 @@ export function StepReview({ result, onBack }) {
         notes: t.notes || '',
         source: t.source || null,
         pluggy_transaction_id: t.pluggy_transaction_id || null,
+        invoice_month: t.invoice_month || null,
         offsets_category_id: t.offsets_category_id || null,
         is_extraordinary: !!t.is_extraordinary,
         is_transfer: !!t.is_transfer,
