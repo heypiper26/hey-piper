@@ -24,8 +24,8 @@ const TooltipBR = ({ active, payload, label, hidden }) => {
         <p style={{ color: '#34d399' }}>Receita: {mask(fmt.currency(row.receita), hidden)}</p>
         <p style={{ color: '#3987e5' }}>Despesas: {mask(fmt.currency(row.despesas), hidden)}</p>
         <p style={{ color: '#f59e0b' }}>Orçamento: {mask(fmt.currency(row.orcamento), hidden)}</p>
-        {row.transfers > 0 && (
-          <p style={{ color: '#38bdf8' }}>Transferências: {mask(fmt.currency(row.transfers), hidden)}</p>
+        {Math.abs(row.transfers || 0) >= 0.005 && (
+          <p style={{ color: '#38bdf8' }}>Transferências: {mask(fmt.currency(-row.transfers), hidden)}</p>
         )}
         <p className={`pt-1 mt-1 border-t border-gray-700 ${saldo >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
           Saldo: {mask(fmt.currency(saldo), hidden)}

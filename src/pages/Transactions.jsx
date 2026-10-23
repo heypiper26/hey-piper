@@ -124,8 +124,10 @@ export default function Transactions() {
     income: filtered.filter((t) => t.type === 'income' && !t.ignored && !t.is_transfer).reduce((s, t) => s + t.amount, 0),
     expense: filtered.filter((t) => t.type === 'expense' && !t.ignored && !t.is_transfer).reduce((s, t) => s + t.amount, 0),
     // Dinheiro que já saiu do caixa mas não é gasto real (ex.: aporte em investimentos)
-    // — some ao lado de Receitas/Despesas, não dentro delas.
-    transfers: filtered.filter((t) => t.is_transfer && !t.ignored).reduce((s, t) => s + t.amount, 0),
+    // — some ao lado de Receitas/Despesas, não dentro delas. Líquido (saídas − entradas):
+    // uma aplicação e o resgate de volta se anulam.
+    transfers: filtered.filter((t) => t.is_transfer && !t.ignored)
+      .reduce((s, t) => s + (t.type === 'income' ? -t.amount : t.amount), 0),
   }), [filtered]);
 
   const activeFilters = [search, filterType, categoryFilter, sourceFilter].filter(Boolean).length;
@@ -390,7 +392,7 @@ export default function Transactions() {
       </div>
 
       {/* Summary */}
-      <div className={`grid gap-2 sm:gap-3 text-center ${totals.transfers > 0 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
+      <div className={`grid gap-2 sm:gap-3 text-center ${Math.abs(totals.transfers) >= 0.005 ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
         <div className="card px-2 sm:px-5 py-3">
           <p className="text-xs text-gray-500 mb-0.5">Receitas</p>
           <p className="text-emerald-400 font-semibold text-sm sm:text-base whitespace-nowrap tabular-nums">{mask(fmt.currency(totals.income), hidden)}</p>
@@ -399,10 +401,10 @@ export default function Transactions() {
           <p className="text-xs text-gray-500 mb-0.5">Despesas</p>
           <p className="text-red-400 font-semibold text-sm sm:text-base whitespace-nowrap tabular-nums">{mask(fmt.currency(totals.expense), hidden)}</p>
         </div>
-        {totals.transfers > 0 && (
+        {Math.abs(totals.transfers) >= 0.005 && (
           <div className="card px-2 sm:px-5 py-3">
             <p className="text-xs text-gray-500 mb-0.5">Transferências</p>
-            <p className="text-sky-400 font-semibold text-sm sm:text-base whitespace-nowrap tabular-nums">{mask(fmt.currency(totals.transfers), hidden)}</p>
+            <p className="text-sky-400 font-semibold text-sm sm:text-base whitespace-nowrap tabular-nums">{mask(fmt.currency(-totals.transfers), hidden)}</p>
           </div>
         )}
         <div className="card px-2 sm:px-5 py-3">

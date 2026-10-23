@@ -50,7 +50,13 @@ export default function CashCard({ data, hidden }) {
           tone={bill.paid ? 'text-red-400' : 'text-gray-500'}
           hidden={hidden}
         />
-        <Figure label="Resultado de caixa" value={data.net} tone={signed(data.net)} hidden={hidden} />
+        <Figure
+          label="Variação da conta no mês"
+          value={data.net}
+          hint="entradas − saídas + investimentos − fatura"
+          tone={signed(data.net)}
+          hidden={hidden}
+        />
       </div>
 
       {p && (

@@ -220,11 +220,13 @@ async function handleSummary(req, res) {
   if (until) baseWhere = sql`${baseWhere} AND date <= ${String(until)}`;
 
   // Transferências (ex.: aporte em investimentos) saem do caixa mas não são gasto real
-  // — ficam fora de income/expense e viram um terceiro bucket somado à parte.
+  // — ficam fora de income/expense e viram um terceiro bucket somado à parte. O bucket é
+  // líquido (saídas − entradas): uma aplicação e o resgate de volta se anulam.
   const totalsQ = sql`
     SELECT type,
            SUM(amount) FILTER (WHERE NOT COALESCE(is_transfer, false)) as total,
-           SUM(amount) FILTER (WHERE COALESCE(is_transfer, false)) as transfer_total
+           SUM(CASE WHEN type = 'income' THEN -amount ELSE amount END)
+             FILTER (WHERE COALESCE(is_transfer, false)) as transfer_total
     FROM transactions WHERE ${baseWhere} GROUP BY type
   `;
 
@@ -541,7 +543,7 @@ async function handleForecast(req, res) {
         WHERE (ignored IS NULL OR ignored = 0) AND NOT COALESCE(is_transfer, false)
           AND date >= ${start} AND date < ${end}
         GROUP BY 1, 2, 3`,
-    sql`SELECT substr(date,1,7) as ym, SUM(amount) as total
+    sql`SELECT substr(date,1,7) as ym, SUM(CASE WHEN type = 'income' THEN -amount ELSE amount END) as total
         FROM transactions
         WHERE (ignored IS NULL OR ignored = 0) AND COALESCE(is_transfer, false)
           AND date >= ${start} AND date < ${end}
